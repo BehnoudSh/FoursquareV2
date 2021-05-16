@@ -7,20 +7,27 @@ plugins {
 
 android {
     compileSdkVersion 30
+
     dataBinding {
         enabled = true
     }
+
     defaultConfig {
+
         applicationId "ir.behnoudsh.aroundus"
         minSdkVersion 23
         targetSdkVersion 30
         versionCode 1
         versionName "1.0"
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField "String", "CLIENT_ID", "\"WGCTBTV215LV5ONUYVU0X00LBPEHJJTUJYBVAQ2J0HPUWQ52\""
+        buildConfigField "String", "CLIENT_SECRET", "\"MAXZTYFGJFTY5WH4COY5ZCIUOQWEXWWLUDYYHVHQSAP4UZTC\""
+
     }
 
     buildTypes {
+
         release {
             debuggable false
             minifyEnabled true
@@ -40,14 +47,18 @@ android {
         buildFeatures {
             dataBinding true
         }
+
     }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
 }
 
 dependencies {
