@@ -13,7 +13,7 @@ interface ApiService {
     @GET(
         "explore?client_id=" + BuildConfig.CLIENT_ID + "&client_secret=" + BuildConfig.CLIENT_SECRET + "&v=20190218&limit=20&intent=browse&radius=1000"
     )
-    fun getVenues(
+    fun getPlaces(
         @Query("ll") lng_lat: String?,
         @Query("offset") offset: Int
     ): Single<ResponseVenues>?
@@ -21,7 +21,7 @@ interface ApiService {
     @GET(
         "{venue_id}?client_id=" + BuildConfig.CLIENT_ID + "&client_secret=" + BuildConfig.CLIENT_SECRET + "&v=20190218"
     )
-    fun getVenueDetails(
+    fun getPlaceDetails(
         @Path(
             value = "venue_id",
             encoded = true

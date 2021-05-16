@@ -14,8 +14,8 @@ class ApiHelper {
         apiComponent.inject(this)
     }
 
-    fun getVenues(lng_lat: String, offset: Int) = apiService.getVenues(lng_lat, offset)
+    fun getPlaces(lng_lat: String, offset: Int) = apiService.getPlaces(lng_lat, offset)
 
-    fun getVenueDetails(venueId: String) = apiService.getVenueDetails(venueId)
+    fun getPlaceDetails(venueId: String) = apiService.getPlaceDetails(venueId)
 
 }
