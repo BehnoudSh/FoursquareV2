@@ -1,7 +1,7 @@
 package ir.behnoudsh.aroundus.data.api
 
-import ir.behnoudsh.aroundus.di.component.ApiComponent
-import ir.behnoudsh.aroundus.di.component.DaggerApiComponent
+import ir.behnoudsh.aroundus.App
+import ir.behnoudsh.aroundus.di.component.DiComponent
 import javax.inject.Inject
 
 class ApiHelper {
@@ -10,7 +10,7 @@ class ApiHelper {
     lateinit var apiService: ApiService
 
     init {
-        val apiComponent: ApiComponent = DaggerApiComponent.create()
+        val apiComponent: DiComponent = App.diComponent
         apiComponent.inject(this)
     }
 

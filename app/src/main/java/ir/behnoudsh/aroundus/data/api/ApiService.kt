@@ -16,7 +16,7 @@ interface ApiService {
     fun getPlaces(
         @Query("ll") lng_lat: String?,
         @Query("offset") offset: Int
-    ): Single<ResponseVenues>?
+    ): Single<ResponseVenues>
 
     @GET(
         "{venue_id}?client_id=" + BuildConfig.CLIENT_ID + "&client_secret=" + BuildConfig.CLIENT_SECRET + "&v=20190218"
@@ -26,6 +26,6 @@ interface ApiService {
             value = "venue_id",
             encoded = true
         ) venueId: String?
-    ): Single<ResponseVenue>?
+    ): Single<ResponseVenue>
 
 }
