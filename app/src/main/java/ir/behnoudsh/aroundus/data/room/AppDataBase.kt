@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
 @Database(entities = [FoursquarePlace::class], version = 1, exportSchema = false)
 abstract class AppDataBase : RoomDatabase() {
 
-    abstract fun foursquareplacesDao(): FoursquarePlacesDao
+    abstract fun getFoursquareplacesDao(): FoursquarePlacesDao
 
     companion object {
 

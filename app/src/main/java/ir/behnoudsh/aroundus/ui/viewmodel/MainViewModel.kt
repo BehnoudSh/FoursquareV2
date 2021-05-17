@@ -1,9 +1,11 @@
 package ir.behnoudsh.aroundus.ui.viewmodel
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 import io.reactivex.disposables.CompositeDisposable
+import ir.behnoudsh.aroundus.data.model.LocationLiveData
 import ir.behnoudsh.aroundus.data.model.venue.ResponseVenue
 import ir.behnoudsh.aroundus.data.model.venues.ResponseVenues
 import ir.behnoudsh.aroundus.data.repository.PlacesRepository
@@ -12,8 +14,8 @@ import ir.behnoudsh.aroundus.di.component.PlacesRepositoryComponent
 import ir.behnoudsh.aroundus.utils.Resource
 import javax.inject.Inject
 
-
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+    private val locationData = LocationLiveData(application)
 
     @Inject
     lateinit var placesRepository: PlacesRepository
@@ -40,5 +42,9 @@ class MainViewModel : ViewModel() {
 
     fun getPlaceDetails(): LiveData<Resource<ResponseVenue>> {
         return placeDetails
+    }
+
+    fun getLocationData(): LocationLiveData {
+        return locationData;
     }
 }

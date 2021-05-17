@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">AroundUs</string>
+    <string name="enable_gps">لطفا GPS را روشن کنید</string>
+    <string name="permission_request">دسترسی موقعیت برای نمایش مکان‌ها لازم است</string>
 </resources>

@@ -10,7 +10,7 @@ class PlacesRepositoryModule {
 
     @Singleton
     @Provides
-    fun providesImageRepository(): PlacesRepository {
+    fun providesPlacesRepository(): PlacesRepository {
         return PlacesRepository()
     }
 }
