@@ -1,6 +1,7 @@
 package ir.behnoudsh.aroundus.di.module
 
 import android.app.Application
+import android.content.Context
 import dagger.Module
 import dagger.Provides
 import ir.behnoudsh.aroundus.data.api.ApiHelper
@@ -14,7 +15,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 @Module
-class DiModule constructor(private var baseURL: String, private var mApplication: Application) {
+class DiModule constructor(private var baseURL: String, private var mApplication: Context) {
 
     @Singleton
     @Provides
@@ -54,13 +55,14 @@ class DiModule constructor(private var baseURL: String, private var mApplication
     }
 
     @Provides
+    @Singleton
     fun providePlacesRepository(): PlacesRepository {
         return PlacesRepository()
     }
 
     @Provides
     @Singleton
-    fun providesApplication(): Application {
+    fun providesApplication(): Context {
         return mApplication
     }
 

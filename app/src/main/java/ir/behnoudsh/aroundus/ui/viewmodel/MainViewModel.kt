@@ -1,6 +1,7 @@
 package ir.behnoudsh.aroundus.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -15,6 +16,7 @@ import ir.behnoudsh.aroundus.data.repository.PlacesRepository
 import ir.behnoudsh.aroundus.di.component.DiComponent
 import ir.behnoudsh.aroundus.utils.Resource
 import java.net.ConnectException
+import java.net.ContentHandler
 import java.net.UnknownHostException
 import javax.inject.Inject
 
@@ -22,7 +24,7 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
     var placesRepository: PlacesRepository = placesRepository
 
     @Inject
-    lateinit var application: Application
+    lateinit var application: Context
 
     init {
 

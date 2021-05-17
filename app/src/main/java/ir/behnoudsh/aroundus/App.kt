@@ -13,14 +13,14 @@ import ir.behnoudsh.aroundus.di.module.DiModule
 class App : Application() {
 
     companion object {
-        var ctx: Context? = null
+        //var ctx: Context? = null
         lateinit var diComponent: DiComponent
     }
 
     private fun initDaggerComponent(): DiComponent {
         diComponent = DaggerDiComponent
             .builder()
-            .diModule(DiModule(ApiURL.BASE_URL, this))
+            .diModule(DiModule(ApiURL.BASE_URL, applicationContext))
             .build()
         return diComponent
 
@@ -29,7 +29,7 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        ctx = applicationContext
+        // ctx = applicationContext
         diComponent = initDaggerComponent()
 
         ViewPump.init(
