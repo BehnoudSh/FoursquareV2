@@ -9,19 +9,19 @@ import androidx.room.PrimaryKey
 data class FoursquarePlace(
     @PrimaryKey
     @ColumnInfo(name = "Id")
-    var id: String,
+    var id: String?,
     @ColumnInfo(name = "Name")
-    var name: String,
+    var name: String?,
     @ColumnInfo(name = "Address")
-    var address: String,
+    var address: String?,
     @ColumnInfo(name = "Distance")
-    var distance: Int,
+    var distance: Int?,
     @ColumnInfo(name = "Lat")
-    var lat: String,
+    var lat: String?,
     @ColumnInfo(name = "Long")
-    var long: String,
+    var long: String?,
     @ColumnInfo(name = "Link")
-    var link: String
+    var link: String?
 ) {
     constructor() : this("", "", "", 0, "", "", "")
 }

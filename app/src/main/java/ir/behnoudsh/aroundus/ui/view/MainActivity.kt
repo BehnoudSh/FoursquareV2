@@ -25,7 +25,6 @@ import kotlinx.android.synthetic.main.activity_main.*
 
 class MainActivity : AppCompatActivity(), CellClickListener {
 
-    private lateinit var placesViewModel: MainViewModel
     private var isGPSEnabled = false
     lateinit var mainViewModel: MainViewModel
     val placesAdapter = PlacesAdapter(this, ArrayList(), this)
@@ -45,6 +44,7 @@ class MainActivity : AppCompatActivity(), CellClickListener {
         setContentView(R.layout.activity_main)
 
         setupViewModel()
+
         GpsUtils(this).turnGPSOn(object : GpsUtils.OnGpsListener {
             override fun gpsStatus(isGPSEnable: Boolean) {
                 this@MainActivity.isGPSEnabled = isGPSEnable
@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity(), CellClickListener {
                 val linearLayoutManager = recyclerView.layoutManager as LinearLayoutManager?
                 if (!isLoading) {
                     if (linearLayoutManager != null &&
-                        linearLayoutManager.findLastCompletelyVisibleItemPosition() == rv_placesList.adapter!!.itemCount - 1
+                        linearLayoutManager.findLastCompletelyVisibleItemPosition() == rv_placesList.adapter!!.itemCount - 5
                     ) {
 //                        placesViewModel.loadMore()
                         isLoading = true
@@ -85,9 +85,11 @@ class MainActivity : AppCompatActivity(), CellClickListener {
     }
 
     private fun startLocationUpdate() {
-        placesViewModel.getLocationData().observe(this, Observer {
-            // placesViewModel.locationChanged(LocationModel(it.longitude, it.latitude));
-        })
+//        mainViewModel.getLocationData().observe(this, Observer {
+//
+//            message.text = it.longitude.toString() + "" + it.latitude.toString()
+////            mainViewModel.locationChanged(LocationModel(it.longitude, it.latitude));
+//        })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

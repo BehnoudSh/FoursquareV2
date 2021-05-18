@@ -8,9 +8,9 @@ plugins {
 android {
     compileSdkVersion 30
 
-    dataBinding {
-        enabled = true
-    }
+//    dataBinding {
+//        enabled = true
+//    }
 
     defaultConfig {
 
@@ -44,9 +44,9 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
 
-        buildFeatures {
-            dataBinding true
-        }
+//        buildFeatures {
+//            dataBinding true
+//        }
 
     }
 
