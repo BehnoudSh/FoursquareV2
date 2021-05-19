@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
 data class FoursquarePlace(
     @PrimaryKey
     @ColumnInfo(name = "Id")
-    var id: String?,
+    var id: String,
     @ColumnInfo(name = "Name")
     var name: String?,
     @ColumnInfo(name = "Address")

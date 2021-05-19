@@ -1,6 +1,5 @@
 package ir.behnoudsh.aroundus.ui.viewmodel
 
-import android.app.Application
 import android.content.Context
 import android.text.TextUtils
 import androidx.lifecycle.*
@@ -22,7 +21,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import java.net.ConnectException
-import java.net.ContentHandler
 import java.net.UnknownHostException
 import javax.inject.Inject
 
@@ -44,8 +42,9 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
 
     })
 
-    private val places = MutableLiveData<Resource<ResponseVenues>>()
-    private val placesFromDB = MutableLiveData<Resource<List<FoursquarePlace>>>()
+    private val places = MutableLiveData<Resource<MutableCollection<FoursquarePlace>>>()
+
+    private val placesFromDB = MutableLiveData<Resource<MutableCollection<FoursquarePlace>>>()
 
     private val placeDetails = MutableLiveData<Resource<ResponseVenue>>()
 
@@ -57,7 +56,19 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
         compositeDisposable.dispose()
     }
 
-    private fun addPlacesToDB(resp: ResponseVenues) {
+    fun loadMore() {
+
+        fetchPlaces(
+            LocationModel(
+                placesRepository.prefs.myLocationLong.toDouble(),
+                placesRepository.prefs.myLocationLat.toDouble()
+            ),
+            placesRepository.prefs.offset
+        )
+
+    }
+
+    private fun addPlacesToDBAndEmitForView(resp: ResponseVenues) {
         var placesList: MutableCollection<FoursquarePlace> =
             mutableListOf<FoursquarePlace>()
         resp.response?.groups?.get(0)?.items?.forEach() {
@@ -69,7 +80,7 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
             }
 
             var item: FoursquarePlace = FoursquarePlace(
-                it.venue?.id,
+                it.venue!!.id,
                 it.venue?.name,
                 address,
                 it.venue?.location?.distance,
@@ -78,7 +89,10 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
                 ""
             )
             placesList.add(item)
+
         }
+        places.postValue(Resource.success(placesList))
+
         GlobalScope.launch(Dispatchers.IO) {
             placesRepository.addPlacesToDB(placesList as ArrayList<FoursquarePlace>)
         }
@@ -94,10 +108,9 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({ placesList ->
-                    places.postValue(Resource.success(placesList))
                     placesRepository.setOffset(placesRepository.getOffset() + 20)
                     placesRepository.setLastUpdatedTime(System.currentTimeMillis())
-                    addPlacesToDB(placesList)
+                    addPlacesToDBAndEmitForView(placesList)
                 }, { throwable ->
                     var message = ""
                     message =
@@ -116,7 +129,7 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
 
     }
 
-    fun fetchPlaceDetails(venueId: String) {
+    fun fetchPlaceDetails(venueId: String?) {
         placeDetails.postValue(Resource.loading(null))
         compositeDisposable.add(
             placesRepository.getPlaceDetails(venueId)
@@ -131,7 +144,7 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
                             "check your internet connection and try again!"
                         else
                             "something went wrong. try again!"
-                    places.postValue(
+                    placeDetails.postValue(
                         Resource.error(
                             message,
                             null
@@ -142,8 +155,12 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
 
     }
 
-    fun getPlaces(): LiveData<Resource<ResponseVenues>> {
+    fun getPlaces(): LiveData<Resource<MutableCollection<FoursquarePlace>>> {
         return places
+    }
+
+    fun getPlacesFromDB(): LiveData<Resource<MutableCollection<FoursquarePlace>>> {
+        return placesFromDB
     }
 
     fun getPlaceDetails(): LiveData<Resource<ResponseVenue>> {
@@ -151,52 +168,81 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
     }
 
     private fun locationChanged(location: LocationModel) {
-//        if (TextUtils.isEmpty(placesRepository.getLastLocationLat())
-//            || TextUtils.isEmpty(placesRepository.getLastLocationLong())
-//        ) {
-//            placesRepository.setLastLocationLat(location.latitude.toString())
-//            placesRepository.setLastLocationLong(location.longitude.toString())
-//        }
-
+        if (TextUtils.isEmpty(placesRepository.getLastLocationLat())
+            || TextUtils.isEmpty(placesRepository.getLastLocationLong())
+        ) {
+            placesRepository.prefs.myLocationLat = "0"
+            placesRepository.prefs.myLocationLong = "0"
+        }
         var distanceFromOldPlace = distanceUtils.distance(
             location.latitude,
             location.longitude,
             placesRepository.getLastLocationLat().toDouble(),
             placesRepository.getLastLocationLong().toDouble()
         )
-        if (distanceFromOldPlace > 100) {
-            placesRepository.setOffset(0)
-            placesRepository.setLastLocationLat(location.latitude.toString())
-            placesRepository.setLastLocationLong(location.longitude.toString())
-            if (internetUtils.isOnline(application)) {
-                deletePlacesFromDB()
-                fetchPlaces(
-                    LocationModel(
-                        placesRepository.getLastLocationLong().toDouble(),
-                        placesRepository.getLastLocationLat().toDouble()
-                    ),
-                    placesRepository.getOffset()
-                )
-            } else {
+
+        if (distanceFromOldPlace > 100) { //door shodim
+
+            val message: String =
+                " اینترنت ندارید و از مکان قبلی" + distanceFromOldPlace + "متر جابجا شده‌اید"
+
+            fetchFromFirst(
+                location, message
+            )
+
+        } else { //nazdikim hanooz
+
+            var datetimeDiff: Long = 0
+            datetimeDiff = System.currentTimeMillis() - placesRepository.prefs.lastUpdated
+
+            if (datetimeDiff < 86400000) { //data jadide
+
                 GlobalScope.launch(Dispatchers.IO) {
-                    placesFromDB.postValue(Resource.success(placesRepository.getPlacesFromDB()))
+                    placesFromDB.postValue(Resource.success(placesRepository.getPlacesFromDB() as MutableCollection<FoursquarePlace>))
                 }
-                placesFromDB.postValue(
-                    Resource.error(
-                        "اینترنت ندارید و از مکان قبلی" + distanceFromOldPlace + "متر جابجا شده‌اید",
-                        null
-                    )
-                )
+
+            } else { //data ghadimie
+
+                val message: String =
+                    if (datetimeDiff < 86400000)
+                        "اینترنت ندارید و آخرین اطلاعات دریافتی مربوط به امروز است."
+                    else
+                        "اینترنت ندارید و آخرین اطلاعات دریافتی مربوط به روزهای پیشین است."
+
+                fetchFromFirst(location, message)
             }
-
-
-        } else {
-
         }
-
     }
 
     private fun deletePlacesFromDB() = viewModelScope.launch(Dispatchers.IO) {
         placesRepository.deletePlacesFromDB()
+    }
+
+    private fun fetchFromFirst(location: LocationModel, message: String) {
+
+        placesRepository.setOffset(0)
+        placesRepository.setLastLocationLat(location.latitude.toString())
+        placesRepository.setLastLocationLong(location.longitude.toString())
+        if (internetUtils.isOnline(application)) {
+            deletePlacesFromDB()
+            fetchPlaces(
+                LocationModel(
+                    placesRepository.getLastLocationLong().toDouble(),
+                    placesRepository.getLastLocationLat().toDouble()
+                ),
+                placesRepository.getOffset()
+            )
+        } else {
+            GlobalScope.launch(Dispatchers.IO) {
+                placesFromDB.postValue(Resource.success(placesRepository.getPlacesFromDB() as MutableCollection<FoursquarePlace>))
+            }
+
+            placesFromDB.postValue(
+                Resource.message(
+                    message, null
+                )
+            )
+        }
+
     }
 }

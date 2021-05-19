@@ -44,7 +44,7 @@ class PlacesRepository {
         return apiHelper.getPlaces(lng_lat, offset)
     }
 
-    fun getPlaceDetails(venueId: String): Single<ResponseVenue> {
+    fun getPlaceDetails(venueId: String?): Single<ResponseVenue> {
         return apiHelper.getPlaceDetails(venueId)
     }
     //endregion

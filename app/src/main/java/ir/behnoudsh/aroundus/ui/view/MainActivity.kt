@@ -7,12 +7,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.View
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
+import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.snackbar.Snackbar
 import io.github.inflationx.viewpump.ViewPumpContextWrapper
 import ir.behnoudsh.aroundus.R
 import ir.behnoudsh.aroundus.data.room.FoursquarePlace
@@ -21,6 +24,7 @@ import ir.behnoudsh.aroundus.ui.adapter.PlacesAdapter
 import ir.behnoudsh.aroundus.ui.viewmodel.MainViewModel
 import ir.behnoudsh.aroundus.ui.viewmodel.ViewModelFactory
 import ir.behnoudsh.aroundus.utils.GpsUtils
+import ir.behnoudsh.aroundus.utils.Status
 import kotlinx.android.synthetic.main.activity_main.*
 
 class MainActivity : AppCompatActivity(), CellClickListener {
@@ -39,25 +43,112 @@ class MainActivity : AppCompatActivity(), CellClickListener {
         invokeLocationAction()
     }
 
+    private fun setupUI() {
+        rv_placesList.layoutManager = LinearLayoutManager(this)
+        rv_placesList.addItemDecoration(
+            DividerItemDecoration(
+                rv_placesList.context,
+                (rv_placesList.layoutManager as LinearLayoutManager).orientation
+            )
+        )
+        rv_placesList.adapter = placesAdapter
+        rv_placesList.setItemViewCacheSize(100);
+        rv_placesList.setDrawingCacheEnabled(true);
+        rv_placesList.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH);
+        initScrollListener()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
+        setupUI()
         setupViewModel()
+        setupObservers()
 
         GpsUtils(this).turnGPSOn(object : GpsUtils.OnGpsListener {
             override fun gpsStatus(isGPSEnable: Boolean) {
                 this@MainActivity.isGPSEnabled = isGPSEnable
             }
         })
-        initRecyclerView()
 
     }
 
-    fun initRecyclerView() {
-        rv_placesList.layoutManager = LinearLayoutManager(this)
-        rv_placesList.adapter = placesAdapter
-        initScrollListener()
+    private fun renderList(places: MutableCollection<FoursquarePlace>) {
+        for (item in places) {
+            placesAdapter.placesList.add(item)
+        }
+        placesAdapter.notifyDataSetChanged()
+    }
+
+    private fun setupObservers() {
+        mainViewModel.getPlaces().observe(this, {
+            when (it.status) {
+                Status.SUCCESS -> {
+                    isLoading = false
+                    pb_loading.visibility = View.GONE
+                    it.data?.let { foursquarePlaces -> renderList(foursquarePlaces) }
+//                    if (it.data?.size == 0 && page == 1) {
+//                        ll_noResults.visibility = View.VISIBLE
+//                    } else
+//                        ll_noResults.visibility = View.GONE
+                }
+
+                Status.ERROR -> {
+                    isLoading = false
+                    pb_loading.visibility = View.GONE
+                    onSNACK(content, it.message.toString())
+                }
+                Status.LOADING -> {
+                    pb_loading.visibility = View.VISIBLE
+                }
+                Status.MESSAGE -> {
+                    message.text = it.message.toString()
+                }
+            }
+
+        })
+
+        mainViewModel.getPlacesFromDB().observe(this, {
+
+            when (it.status) {
+                Status.SUCCESS -> {
+                    isLoading = false
+                    pb_loading.visibility = View.GONE
+                    it.data?.let { foursquarePlaces -> renderList(foursquarePlaces) }
+//                    if (it.data?.size == 0 && page == 1) {
+//                        ll_noResults.visibility = View.VISIBLE
+//                    } else
+//                        ll_noResults.visibility = View.GONE
+                }
+                Status.ERROR -> {
+                    isLoading = false
+                    pb_loading.visibility = View.GONE
+                    onSNACK(content, it.message.toString())
+                }
+                Status.LOADING -> pb_loading.visibility = View.VISIBLE
+                Status.MESSAGE -> message.text = it.message.toString()
+            }
+
+
+        })
+
+
+    }
+
+    private fun onSNACK(view: View, message: String) {
+        val snackbar = Snackbar.make(
+            view, message,
+            Snackbar.LENGTH_INDEFINITE
+        ).setAction("retry") {
+
+            //load more
+
+        }
+        val snackbarView = snackbar.view
+        val textView =
+            snackbarView.findViewById(com.google.android.material.R.id.snackbar_text) as TextView
+        textView.textSize = 14f
+        snackbar.show()
     }
 
     private fun initScrollListener() {
@@ -69,7 +160,7 @@ class MainActivity : AppCompatActivity(), CellClickListener {
                     if (linearLayoutManager != null &&
                         linearLayoutManager.findLastCompletelyVisibleItemPosition() == rv_placesList.adapter!!.itemCount - 5
                     ) {
-//                        placesViewModel.loadMore()
+                        mainViewModel.loadMore()
                         isLoading = true
                     }
                 }
@@ -85,14 +176,14 @@ class MainActivity : AppCompatActivity(), CellClickListener {
     }
 
     private fun startLocationUpdate() {
-//        mainViewModel.getLocationData().observe(this, Observer {
-//
-//            message.text = it.longitude.toString() + "" + it.latitude.toString()
-////            mainViewModel.locationChanged(LocationModel(it.longitude, it.latitude));
-//        })
+
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode == Activity.RESULT_OK) {
             if (requestCode == GPS_REQUEST) {
@@ -121,7 +212,6 @@ class MainActivity : AppCompatActivity(), CellClickListener {
             )
         }
     }
-
 
     private fun isPermissionsGranted() =
         ActivityCompat.checkSelfPermission(
@@ -157,9 +247,7 @@ class MainActivity : AppCompatActivity(), CellClickListener {
     }
 
     override fun onCellClickListener(place: FoursquarePlace) {
-
-//        placesViewModel.getPlaceDetails(place)
-
+        mainViewModel.fetchPlaceDetails(place.id)
     }
 }
 

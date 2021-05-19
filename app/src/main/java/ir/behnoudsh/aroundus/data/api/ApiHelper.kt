@@ -16,6 +16,6 @@ class ApiHelper {
 
     fun getPlaces(lng_lat: String, offset: Int) = apiService.getPlaces(lng_lat, offset)
 
-    fun getPlaceDetails(venueId: String) = apiService.getPlaceDetails(venueId)
+    fun getPlaceDetails(venueId: String?) = apiService.getPlaceDetails(venueId)
 
 }

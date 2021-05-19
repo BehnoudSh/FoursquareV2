@@ -4,6 +4,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:id="@+id/content"
+
     tools:context=".ui.view.MainActivity">
 
     <androidx.recyclerview.widget.RecyclerView
@@ -22,14 +24,14 @@
         android:visibility="gone" />
 
 
-    <Button
-        android:id="@+id/btn_loadmore"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_alignParentBottom="true"
-        android:layout_centerHorizontal="true"
-        android:text="تلاش دوباره"
-        android:visibility="gone" />
+<!--    <Button-->
+<!--        android:id="@+id/btn_loadmore"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:layout_alignParentBottom="true"-->
+<!--        android:layout_centerHorizontal="true"-->
+<!--        android:text="تلاش دوباره"-->
+<!--        android:visibility="gone" />-->
 
     <TextView
         android:id="@+id/message"
