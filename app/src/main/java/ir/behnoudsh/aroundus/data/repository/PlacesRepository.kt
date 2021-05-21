@@ -28,9 +28,9 @@ class PlacesRepository {
     @Inject
     lateinit var application: Context
 
-    lateinit var prefs: Prefs
+    var prefs: Prefs
 
-    lateinit var foursquarePlacesDao: FoursquarePlacesDao
+    var foursquarePlacesDao: FoursquarePlacesDao
 
     init {
         var apiComponent: DiComponent = App.diComponent
