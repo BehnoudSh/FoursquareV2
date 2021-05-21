@@ -7,7 +7,10 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "places")
 
 data class FoursquarePlace(
-    @PrimaryKey
+
+    @PrimaryKey(autoGenerate = true)
+    @ColumnInfo(name = "RoomId")
+    var roomId: Int,
     @ColumnInfo(name = "Id")
     var id: String,
     @ColumnInfo(name = "Name")
@@ -23,5 +26,8 @@ data class FoursquarePlace(
     @ColumnInfo(name = "Link")
     var link: String?
 ) {
-    constructor() : this("", "", "", 0, "", "", "")
+   constructor() : this(0, "", "", "", 0, "", "", "")
+
+
+
 }

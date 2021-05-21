@@ -9,8 +9,10 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProviders
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -18,6 +20,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import io.github.inflationx.viewpump.ViewPumpContextWrapper
 import ir.behnoudsh.aroundus.R
+import ir.behnoudsh.aroundus.data.model.LocationModel
 import ir.behnoudsh.aroundus.data.room.FoursquarePlace
 import ir.behnoudsh.aroundus.ui.adapter.CellClickListener
 import ir.behnoudsh.aroundus.ui.adapter.PlacesAdapter
@@ -31,7 +34,7 @@ class MainActivity : AppCompatActivity(), CellClickListener {
 
     private var isGPSEnabled = false
     lateinit var mainViewModel: MainViewModel
-    val placesAdapter = PlacesAdapter(this, ArrayList(), this)
+    private val placesAdapter = PlacesAdapter(this, ArrayList(), this)
     var isLoading = false
 
     override fun attachBaseContext(newBase: Context?) {
@@ -52,9 +55,9 @@ class MainActivity : AppCompatActivity(), CellClickListener {
             )
         )
         rv_placesList.adapter = placesAdapter
-        rv_placesList.setItemViewCacheSize(100);
-        rv_placesList.setDrawingCacheEnabled(true);
-        rv_placesList.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH);
+        rv_placesList.setItemViewCacheSize(100)
+        rv_placesList.setDrawingCacheEnabled(true)
+        rv_placesList.setDrawingCacheQuality(View.DRAWING_CACHE_QUALITY_HIGH)
         initScrollListener()
     }
 
@@ -87,52 +90,65 @@ class MainActivity : AppCompatActivity(), CellClickListener {
                     isLoading = false
                     pb_loading.visibility = View.GONE
                     it.data?.let { foursquarePlaces -> renderList(foursquarePlaces) }
-//                    if (it.data?.size == 0 && page == 1) {
-//                        ll_noResults.visibility = View.VISIBLE
-//                    } else
-//                        ll_noResults.visibility = View.GONE
+                    ll_noResults.visibility = View.GONE
                 }
-
                 Status.ERROR -> {
                     isLoading = false
                     pb_loading.visibility = View.GONE
                     onSNACK(content, it.message.toString())
+                    ll_noResults.visibility = View.GONE
                 }
                 Status.LOADING -> {
                     pb_loading.visibility = View.VISIBLE
+                    ll_noResults.visibility = View.GONE
                 }
-                Status.MESSAGE -> {
-                    message.text = it.message.toString()
+
+                Status.EMPTY -> {
+                    ll_noResults.visibility = View.VISIBLE
+                    rv_placesList.visibility = View.GONE
+                }
+                Status.CLEAR -> {
+                    placesAdapter.placesList.clear()
+                    placesAdapter.notifyDataSetChanged()
                 }
             }
-
         })
 
-        mainViewModel.getPlacesFromDB().observe(this, {
+        mainViewModel.getPlaceDetails().observe(this, {
 
             when (it.status) {
                 Status.SUCCESS -> {
-                    isLoading = false
+                    val dialogFragment = PlaceDetailsDialog(it.data!!)
+                    dialogFragment.show(supportFragmentManager, "placeDetails")
                     pb_loading.visibility = View.GONE
-                    it.data?.let { foursquarePlaces -> renderList(foursquarePlaces) }
-//                    if (it.data?.size == 0 && page == 1) {
-//                        ll_noResults.visibility = View.VISIBLE
-//                    } else
-//                        ll_noResults.visibility = View.GONE
+
                 }
                 Status.ERROR -> {
-                    isLoading = false
-                    pb_loading.visibility = View.GONE
-                    onSNACK(content, it.message.toString())
+
+                    Toast.makeText(this, "بروز خطا در دریافت اطلاعات مکان", Toast.LENGTH_LONG)
+                        .show()
+
                 }
-                Status.LOADING -> pb_loading.visibility = View.VISIBLE
-                Status.MESSAGE -> message.text = it.message.toString()
+                Status.LOADING -> {
+
+                    pb_loading.visibility = View.VISIBLE
+
+                }
+                Status.EMPTY -> {
+                }
+                Status.CLEAR -> {
+                }
             }
 
 
         })
 
+        mainViewModel.getMessage().observe(this, {
 
+            message.text = it
+
+
+        })
     }
 
     private fun onSNACK(view: View, message: String) {
@@ -141,7 +157,8 @@ class MainActivity : AppCompatActivity(), CellClickListener {
             Snackbar.LENGTH_INDEFINITE
         ).setAction("retry") {
 
-            //load more
+            mainViewModel.loadMore()
+            isLoading = true
 
         }
         val snackbarView = snackbar.view
@@ -176,7 +193,9 @@ class MainActivity : AppCompatActivity(), CellClickListener {
     }
 
     private fun startLocationUpdate() {
-
+        mainViewModel.getLocationData().observe(this, Observer {
+            mainViewModel.locationChanged(LocationModel(it.longitude, it.latitude));
+        })
     }
 
     override fun onActivityResult(
@@ -199,18 +218,26 @@ class MainActivity : AppCompatActivity(), CellClickListener {
 
             isPermissionsGranted() -> startLocationUpdate()
 
-            shouldShowRequestPermissionRationale() -> message.text =
-                getString(R.string.permission_request)
+            shouldShowRequestPermissionRationale() -> {
+                message.text =
+                    getString(R.string.permission_request)
 
-            else -> ActivityCompat.requestPermissions(
-                this,
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ),
-                LOCATION_REQUEST
-            )
+                requestPermission()
+            }
+            else -> requestPermission()
         }
+    }
+
+    private fun requestPermission() {
+
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ),
+            LOCATION_REQUEST
+        )
     }
 
     private fun isPermissionsGranted() =
@@ -247,7 +274,7 @@ class MainActivity : AppCompatActivity(), CellClickListener {
     }
 
     override fun onCellClickListener(place: FoursquarePlace) {
-        mainViewModel.fetchPlaceDetails(place.id)
+        mainViewModel.fetchPlaceDetails(place)
     }
 }
 

@@ -2,20 +2,21 @@ package ir.behnoudsh.aroundus.ui.viewmodel
 
 import android.content.Context
 import android.text.TextUtils
-import androidx.lifecycle.*
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.schedulers.Schedulers
 import ir.behnoudsh.aroundus.App
 import ir.behnoudsh.aroundus.data.model.LocationLiveData
 import ir.behnoudsh.aroundus.data.model.LocationModel
-import ir.behnoudsh.aroundus.data.model.venue.ResponseVenue
 import ir.behnoudsh.aroundus.data.model.venues.ResponseVenues
 import ir.behnoudsh.aroundus.data.repository.PlacesRepository
 import ir.behnoudsh.aroundus.data.room.FoursquarePlace
 import ir.behnoudsh.aroundus.di.component.DiComponent
 import ir.behnoudsh.aroundus.utils.DistanceUtils
-import ir.behnoudsh.aroundus.utils.InternetUtils
 import ir.behnoudsh.aroundus.utils.Resource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -26,7 +27,8 @@ import javax.inject.Inject
 
 class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
     var placesRepository: PlacesRepository = placesRepository
-    val distanceUtils: DistanceUtils = DistanceUtils()
+    private val distanceUtils: DistanceUtils = DistanceUtils()
+    var appStart: Boolean = true
 
     @Inject
     lateinit var application: Context
@@ -36,28 +38,95 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
         apiComponent.inject(this)
     }
 
-    private val locationData = LocationLiveData(application).observeForever(Observer {
+    fun locationChanged(location: LocationModel) {
 
-        locationChanged(LocationModel(it.longitude, it.latitude))
+        if (TextUtils.isEmpty(placesRepository.getLastLocationLat())
+            || TextUtils.isEmpty(placesRepository.getLastLocationLong())
+        ) {
+            placesRepository.prefs.myLocationLat = "0"
+            placesRepository.prefs.myLocationLong = "0"
+            appStart = false
+        }
 
-    })
+        var distanceFromOldPlace = distanceUtils.distance(
+            location.latitude,
+            location.longitude,
+            placesRepository.getLastLocationLat().toDouble(),
+            placesRepository.getLastLocationLong().toDouble()
+        )
+
+        if (distanceFromOldPlace > 100) {
+            appStart = false
+            message.postValue("در حال بروزرسانی مکان‌های اطراف")
+
+            places.postValue(Resource.clear())
+
+            placesRepository.setOffset(0)
+            placesRepository.setLastLocationLat(location.latitude.toString())
+            placesRepository.setLastLocationLong(location.longitude.toString())
+            deletePlacesFromDB()
+            fetchPlaces(
+                LocationModel(
+                    location.longitude,
+                    location.latitude
+                ),
+                placesRepository.getOffset()
+            )
+
+        } else {
+
+            if (appStart) {
+                appStart = false
+
+                var datetimeDiff: Long = 0
+                datetimeDiff = System.currentTimeMillis() - placesRepository.prefs.lastUpdated
+
+                if (datetimeDiff < 86400000) { //data jadid dar db
+                    message.postValue(
+                        "شما از مکان قبلی خیلی جابجا نشده‌اید و اطلاعات دریافتی به روز هستند."
+                    )
+
+                    GlobalScope.launch(Dispatchers.IO) {
+                        places.postValue(Resource.success(placesRepository.getPlacesFromDB() as MutableCollection<FoursquarePlace>))
+                    }
+
+                } else { //data ghadimi dar db
+
+
+                    message.postValue(
+                        "شما از مکان قبلی خیلی جابجا نشده‌اید ولی اطلاعات قدیمی است، مکان‌های جدیدی دریافت خواهد شد."
+                    )
+
+                    deletePlacesFromDB()
+                    placesRepository.setOffset(0)
+                    fetchPlaces(
+                        LocationModel(
+                            location.longitude,
+                            location.latitude
+                        ),
+                        placesRepository.getOffset()
+                    )
+                }
+            }
+        }
+    }
+
+    private val locationData = LocationLiveData(application)
+    fun getLocationData(): LocationLiveData {
+        return locationData
+    }
 
     private val places = MutableLiveData<Resource<MutableCollection<FoursquarePlace>>>()
+    private val message = MutableLiveData<String>()
 
-    private val placesFromDB = MutableLiveData<Resource<MutableCollection<FoursquarePlace>>>()
-
-    private val placeDetails = MutableLiveData<Resource<ResponseVenue>>()
-
+    private val placeDetails = MutableLiveData<Resource<FoursquarePlace>>()
     private val compositeDisposable = CompositeDisposable()
-    private val internetUtils: InternetUtils = InternetUtils(application)
-
     override fun onCleared() {
         super.onCleared()
         compositeDisposable.dispose()
     }
 
     fun loadMore() {
-
         fetchPlaces(
             LocationModel(
                 placesRepository.prefs.myLocationLong.toDouble(),
@@ -65,21 +134,21 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
             ),
             placesRepository.prefs.offset
         )
-
     }
 
     private fun addPlacesToDBAndEmitForView(resp: ResponseVenues) {
         var placesList: MutableCollection<FoursquarePlace> =
-            mutableListOf<FoursquarePlace>()
+            mutableListOf()
         resp.response?.groups?.get(0)?.items?.forEach() {
-            var address: String = ""
+            var address = ""
             it.venue?.location?.formattedAddress?.forEach()
             {
                 address += it
                 address += "\n"
             }
 
-            var item: FoursquarePlace = FoursquarePlace(
+            var item = FoursquarePlace(
+                0,
                 it.venue!!.id,
                 it.venue?.name,
                 address,
@@ -108,16 +177,29 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({ placesList ->
-                    placesRepository.setOffset(placesRepository.getOffset() + 20)
-                    placesRepository.setLastUpdatedTime(System.currentTimeMillis())
+
+                    if (placesList.response?.groups?.get(0)?.items?.size != 0) {
+                        placesRepository.setOffset(placesRepository.getOffset() + 20)
+                        placesRepository.setLastUpdatedTime(System.currentTimeMillis())
+                        message.postValue("اطلاعات جدید دریافت شد")
+                    } else {
+                        if (offset == 0) {
+                            message.postValue(
+                                "مکانی در این موقعیت یافت نشد"
+                            )
+                            places.postValue(Resource.empty())
+                        }
+                    }
+
                     addPlacesToDBAndEmitForView(placesList)
+
                 }, { throwable ->
                     var message = ""
                     message =
                         if (throwable is UnknownHostException || throwable is ConnectException)
-                            "check your internet connection and try again!"
+                            "اتصال اینترنت را بررسی کنید و دوباره تلاش کنید"
                         else
-                            "something went wrong. try again!"
+                            "مشکلی در دریافت اطلاعات به وجود آمد"
                     places.postValue(
                         Resource.error(
                             message,
@@ -129,14 +211,16 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
 
     }
 
-    fun fetchPlaceDetails(venueId: String?) {
+    fun fetchPlaceDetails(place: FoursquarePlace) {
         placeDetails.postValue(Resource.loading(null))
         compositeDisposable.add(
-            placesRepository.getPlaceDetails(venueId)
+            placesRepository.getPlaceDetails(place.id)
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe({ Details ->
-                    placeDetails.postValue(Resource.success(Details))
+
+                    place.link = Details.response?.venue?.canonicalUrl
+                    placeDetails.postValue(Resource.success(place))
                 }, { throwable ->
                     var message = ""
                     message =
@@ -159,90 +243,16 @@ class MainViewModel(placesRepository: PlacesRepository) : ViewModel() {
         return places
     }
 
-    fun getPlacesFromDB(): LiveData<Resource<MutableCollection<FoursquarePlace>>> {
-        return placesFromDB
-    }
-
-    fun getPlaceDetails(): LiveData<Resource<ResponseVenue>> {
+    fun getPlaceDetails(): LiveData<Resource<FoursquarePlace>> {
         return placeDetails
     }
 
-    private fun locationChanged(location: LocationModel) {
-        if (TextUtils.isEmpty(placesRepository.getLastLocationLat())
-            || TextUtils.isEmpty(placesRepository.getLastLocationLong())
-        ) {
-            placesRepository.prefs.myLocationLat = "0"
-            placesRepository.prefs.myLocationLong = "0"
-        }
-        var distanceFromOldPlace = distanceUtils.distance(
-            location.latitude,
-            location.longitude,
-            placesRepository.getLastLocationLat().toDouble(),
-            placesRepository.getLastLocationLong().toDouble()
-        )
-
-        if (distanceFromOldPlace > 100) { //door shodim
-
-            val message: String =
-                " اینترنت ندارید و از مکان قبلی" + distanceFromOldPlace + "متر جابجا شده‌اید"
-
-            fetchFromFirst(
-                location, message
-            )
-
-        } else { //nazdikim hanooz
-
-            var datetimeDiff: Long = 0
-            datetimeDiff = System.currentTimeMillis() - placesRepository.prefs.lastUpdated
-
-            if (datetimeDiff < 86400000) { //data jadide
-
-                GlobalScope.launch(Dispatchers.IO) {
-                    placesFromDB.postValue(Resource.success(placesRepository.getPlacesFromDB() as MutableCollection<FoursquarePlace>))
-                }
-
-            } else { //data ghadimie
-
-                val message: String =
-                    if (datetimeDiff < 86400000)
-                        "اینترنت ندارید و آخرین اطلاعات دریافتی مربوط به امروز است."
-                    else
-                        "اینترنت ندارید و آخرین اطلاعات دریافتی مربوط به روزهای پیشین است."
-
-                fetchFromFirst(location, message)
-            }
-        }
+    fun getMessage(): LiveData<String> {
+        return message
     }
 
     private fun deletePlacesFromDB() = viewModelScope.launch(Dispatchers.IO) {
         placesRepository.deletePlacesFromDB()
     }
 
-    private fun fetchFromFirst(location: LocationModel, message: String) {
-
-        placesRepository.setOffset(0)
-        placesRepository.setLastLocationLat(location.latitude.toString())
-        placesRepository.setLastLocationLong(location.longitude.toString())
-        if (internetUtils.isOnline(application)) {
-            deletePlacesFromDB()
-            fetchPlaces(
-                LocationModel(
-                    placesRepository.getLastLocationLong().toDouble(),
-                    placesRepository.getLastLocationLat().toDouble()
-                ),
-                placesRepository.getOffset()
-            )
-        } else {
-            GlobalScope.launch(Dispatchers.IO) {
-                placesFromDB.postValue(Resource.success(placesRepository.getPlacesFromDB() as MutableCollection<FoursquarePlace>))
-            }
-
-            placesFromDB.postValue(
-                Resource.message(
-                    message, null
-                )
-            )
-        }
-
-    }
 }
